@@ -2,14 +2,7 @@ import heapq
 import math
 
 
-def haversine(lat1, lon1, lat2, lon2):
-    """Distance in meters between two lat/lon points."""
-    R = 6371000
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+from utils import haversine
 
 
 def heuristic(node_a, node_b, nodes_map):
@@ -61,10 +54,10 @@ def build_graph(edges):
     return graph
 
 
-def find_path(start, end, nodes, edges):
+def find_path(start, end, nodes, edges, algorithm='astar'):
     """
-    A* pathfinding with haversine heuristic.
-    Returns dict with path, edges, distance, route_geometry.
+    Pathfinding using A*, Dijkstra, or Uniform Cost Search (UCS).
+    Returns dict with path, edges, distance, raw_distance, nodes_explored, and explored_nodes.
     """
     nodes_map = {n['id']: n for n in nodes}
     graph = build_graph(edges)
@@ -72,50 +65,91 @@ def find_path(start, end, nodes, edges):
     if start not in nodes_map or end not in nodes_map:
         return None
 
+    # Track visited states for comparison
+    nodes_explored = 0
+    explored_nodes = []
+    explored_set = set()
+
     open_set = [(0, start)]
     came_from = {}
     edge_from = {}
     g_score = {start: 0}
+    closed_set = set()
+
+    goal_found = False
 
     while open_set:
-        _, current = heapq.heappop(open_set)
+        priority, current = heapq.heappop(open_set)
 
-        if current == end:
-            path = [current]
-            path_edges = []
-            while current in came_from:
-                path_edges.append(edge_from[current])
-                current = came_from[current]
-                path.append(current)
-            path.reverse()
-            path_edges.reverse()
+        if current in closed_set:
+            continue
+        closed_set.add(current)
 
-            raw_dist = sum(
-                haversine(
-                    nodes_map[path[i]]['lat'], nodes_map[path[i]]['lon'],
-                    nodes_map[path[i + 1]]['lat'], nodes_map[path[i + 1]]['lon']
-                )
-                for i in range(len(path) - 1)
-            )
+        # Track popped nodes
+        nodes_explored += 1
+        if current not in explored_set:
+            explored_set.add(current)
+            explored_nodes.append([nodes_map[current]['lat'], nodes_map[current]['lon']])
 
-            return {
-                'path': path,
-                'edges': path_edges,
-                'distance': round(g_score[end], 1),
-                'raw_distance': round(raw_dist, 1),
-            }
+        # Early exit for A* and UCS when target is reached
+        if algorithm in ['astar', 'ucs'] and current == end:
+            goal_found = True
+            break
 
         if current not in graph:
             continue
 
         current_g = g_score[current]
         for neighbor, weight, edge_id in graph[current]:
+            if neighbor in closed_set:
+                continue
+
             tentative_g = current_g + weight
             if tentative_g < g_score.get(neighbor, float('inf')):
                 came_from[neighbor] = current
                 edge_from[neighbor] = edge_id
                 g_score[neighbor] = tentative_g
-                f = tentative_g + heuristic(neighbor, end, nodes_map)
+                
+                # Determine priority based on selected algorithm
+                if algorithm == 'astar':
+                    f = tentative_g + heuristic(neighbor, end, nodes_map)
+                else:
+                    f = tentative_g # Dijkstra and UCS
+
                 heapq.heappush(open_set, (f, neighbor))
 
-    return None
+    # Dijkstra runs without early exit, check if target has been reached in graph traversal
+    if algorithm == 'dijkstra' and end in came_from:
+        goal_found = True
+
+    # If target is unreachable
+    if not goal_found and end not in g_score:
+        return None
+
+    # Reconstruct path
+    current = end
+    path = [current]
+    path_edges = []
+    while current in came_from:
+        path_edges.append(edge_from[current])
+        current = came_from[current]
+        path.append(current)
+    path.reverse()
+    path_edges.reverse()
+
+    raw_dist = sum(
+        haversine(
+            nodes_map[path[i]]['lat'], nodes_map[path[i]]['lon'],
+            nodes_map[path[i + 1]]['lat'], nodes_map[path[i + 1]]['lon']
+        )
+        for i in range(len(path) - 1)
+    )
+
+    return {
+        'path': path,
+        'edges': path_edges,
+        'distance': round(g_score[end], 1),
+        'raw_distance': round(raw_dist, 1),
+        'nodes_explored': nodes_explored,
+        'explored_nodes': explored_nodes
+    }

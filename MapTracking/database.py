@@ -54,9 +54,9 @@ def seed_users():
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                  ("admin", generate_password_hash("admin123"), "admin"))
+                  ("admin", generate_password_hash("admin123", method='pbkdf2:sha256'), "admin"))
         c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-                  ("user", generate_password_hash("user123"), "user"))
+                  ("user", generate_password_hash("user123", method='pbkdf2:sha256'), "user"))
         conn.commit()
     conn.close()
 

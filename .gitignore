@@ -1,0 +1,33 @@
+*.md
+reports/
+plans/
+.env
+.brain/
+
+# Standard Python gitignores
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.venv
+.env.test
+.env.developer
+
+# IDE configs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Database and media files
+MapTracking/maptracking.db
+MapTracking/static/tiles/
+*.db

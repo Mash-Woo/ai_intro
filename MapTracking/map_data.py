@@ -12,8 +12,8 @@ import database as db
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'osm_cache.json')
 
-# Bounding box: Hoàn Kiếm district + surroundings
-BBOX = (21.018, 105.843, 21.042, 105.862)
+# Bounding box: Ba Đình ward (Quán Thánh + Trúc Bạch + surroundings)
+BBOX = (21.028, 105.822, 21.050, 105.850)
 
 OVERPASS_QUERY = f"""
 [out:json][timeout:60];
@@ -26,14 +26,7 @@ out skel qt;
 """
 
 
-def haversine(lat1, lon1, lat2, lon2):
-    """Distance in meters between two lat/lon points."""
-    R = 6371000
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+from utils import haversine
 
 
 def fetch_osm_data():
@@ -45,7 +38,10 @@ def fetch_osm_data():
 
     print("[map_data] Fetching OSM data from Overpass API...")
     try:
-        resp = requests.post(OVERPASS_URL, data={"data": OVERPASS_QUERY}, timeout=120)
+        headers = {
+            'User-Agent': 'MapTrackingAgent/1.0 (manhnguyen@project.ai_intro)'
+        }
+        resp = requests.post(OVERPASS_URL, data={"data": OVERPASS_QUERY}, headers=headers, timeout=120)
         resp.raise_for_status()
         data = resp.json()
     except Exception as e:
@@ -195,7 +191,14 @@ def build_graph(osm_data):
 
 
 def initialize_map():
-    """Populate database with real OSM data if empty."""
+    """Populate database with real OSM data if empty, and ensure map tiles are downloaded offline."""
+    # Ensure offline map tiles are downloaded first
+    try:
+        from download_tiles import download_tiles
+        download_tiles()
+    except Exception as e:
+        print(f"[map_data] Warning: Failed to check/download map tiles offline: {e}")
+
     if db.node_count() > 0:
         return
 

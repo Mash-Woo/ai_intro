@@ -22,6 +22,7 @@ class MapApp {
 
         this.edgeLayers = {};
         this.routeLayer = null;
+        this.exploredLayer = null;
         this.startMarker = null;
         this.endMarker = null;
 
@@ -33,14 +34,19 @@ class MapApp {
     }
 
     async init() {
-        this.map = L.map('map', {zoomControl: true});
+        this.map = L.map('map', {
+            zoomControl: true,
+            minZoom: 13,
+            maxZoom: 17
+        });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19,
+        L.tileLayer('/static/tiles/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap (Offline)</a>',
+            minZoom: 13,
+            maxZoom: 17,
         }).addTo(this.map);
 
-        this.map.setView([21.030, 105.853], 16);
+        this.map.setView([21.039, 105.836], 15);
 
         await this.loadMap();
         this.drawEdges();
@@ -59,7 +65,7 @@ class MapApp {
         this.edges.forEach(e => this.edgeMap[e.id] = e);
 
         if (data.center) {
-            this.map.setView([data.center.lat, data.center.lon], 16);
+            this.map.setView([data.center.lat, data.center.lon], 15);
         }
     }
 
@@ -160,6 +166,38 @@ class MapApp {
             this.map.removeLayer(this.routeLayer);
             this.routeLayer = null;
         }
+        if (this.exploredLayer) {
+            this.map.removeLayer(this.exploredLayer);
+            this.exploredLayer = null;
+        }
+    }
+
+    drawExplored(exploredNodes) {
+        if (this.exploredLayer) {
+            this.map.removeLayer(this.exploredLayer);
+            this.exploredLayer = null;
+        }
+        if (!exploredNodes || exploredNodes.length === 0) return;
+
+        const markers = [];
+        for (const coords of exploredNodes) {
+            // Do not draw over start or end markers
+            const isStart = this.startNode && Math.abs(coords[0] - this.startNode.lat) < 1e-6 && Math.abs(coords[1] - this.startNode.lon) < 1e-6;
+            const isEnd = this.endNode && Math.abs(coords[0] - this.endNode.lat) < 1e-6 && Math.abs(coords[1] - this.endNode.lon) < 1e-6;
+            if (isStart || isEnd) continue;
+
+            const circle = L.circleMarker(coords, {
+                radius: 4,
+                fillColor: '#f59e0b',
+                color: '#f59e0b',
+                weight: 1,
+                opacity: 0.6,
+                fillOpacity: 0.35,
+                interactive: false
+            });
+            markers.push(circle);
+        }
+        this.exploredLayer = L.layerGroup(markers).addTo(this.map);
     }
 
     setMarker(type, node) {
@@ -264,10 +302,17 @@ class MapApp {
     async findRoute() {
         if (!this.startNode || !this.endNode) return;
 
+        const algoSelect = document.getElementById('select-algorithm');
+        const algorithm = algoSelect ? algoSelect.value : 'astar';
+
         const res = await fetch('/api/route', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({start: this.startNode.id, end: this.endNode.id}),
+            body: JSON.stringify({
+                start: this.startNode.id,
+                end: this.endNode.id,
+                algorithm: algorithm
+            }),
         });
 
         const data = await res.json();
@@ -282,6 +327,7 @@ class MapApp {
             return;
         }
 
+        this.drawExplored(data.explored_nodes);
         this.drawRoute(data.route_geometry);
         this.showRouteResult(data);
     }
@@ -295,7 +341,12 @@ class MapApp {
         const speedKmh = 25;
         const timeMin = Math.max(1, Math.round((data.raw_distance / 1000) / speedKmh * 60));
 
+        const algoSelect = document.getElementById('select-algorithm');
+        const algoName = algoSelect ? algoSelect.options[algoSelect.selectedIndex].text : 'A*';
+
         infoDiv.innerHTML = `
+            <strong>Giải thuật:</strong> ${algoName}<br>
+            <strong>Số nút giao đã duyệt:</strong> <span style="color:#f59e0b; font-weight:bold;">${data.nodes_explored || 0}</span><br>
             <strong>Khoảng cách:</strong> ${distKm} km<br>
             <strong>Thời gian ước tính:</strong> ~${timeMin} phút<br>
             <strong>Số ngã tư đi qua:</strong> ${data.path.length}

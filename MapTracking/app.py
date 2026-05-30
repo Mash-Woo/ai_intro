@@ -1,11 +1,21 @@
 import json
+import os
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 import database as db
 import pathfinding
 from map_data import initialize_map
 
+# Load .env file manually to keep it 100% offline and package-dependency free
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
+if os.path.exists(env_path):
+    with open(env_path) as f:
+        for line in f:
+            if line.strip() and not line.startswith('#') and '=' in line:
+                key, val = line.strip().split('=', 1)
+                os.environ[key.strip()] = val.strip()
+
 app = Flask(__name__)
-app.secret_key = 'maptracking-secret-key-2024'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'maptracking-secret-key-2024')
 
 
 @app.before_request
@@ -60,7 +70,7 @@ def api_map():
         avg_lat = sum(n['lat'] for n in nodes) / len(nodes)
         avg_lon = sum(n['lon'] for n in nodes) / len(nodes)
     else:
-        avg_lat, avg_lon = 21.030, 105.853
+        avg_lat, avg_lon = 21.039, 105.836
 
     return jsonify({
         'nodes': nodes,
@@ -74,6 +84,7 @@ def api_route():
     data = request.get_json()
     start = data.get('start')
     end = data.get('end')
+    algorithm = data.get('algorithm', 'astar')
 
     if start is None or end is None:
         return jsonify({'error': 'Thiếu điểm đầu hoặc điểm cuối'}), 400
@@ -81,7 +92,7 @@ def api_route():
     nodes = db.get_all_nodes()
     edges = db.get_all_edges()
 
-    result = pathfinding.find_path(start, end, nodes, edges)
+    result = pathfinding.find_path(start, end, nodes, edges, algorithm=algorithm)
     if result is None:
         return jsonify({'error': 'Không tìm được đường đi. Có thể đường bị chặn.'}), 404
 
