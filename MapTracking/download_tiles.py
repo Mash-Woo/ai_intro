@@ -63,7 +63,7 @@ def download_tiles(bbox=BBOX, zooms=ZOOM_LEVELS, output_dir=None):
 
         for x in x_range:
             for y in y_range:
-                tile_url = f"https://tile.openstreetmap.org/{zoom}/{x}/{y}.png"
+                tile_url = f"https://a.basemaps.cartocdn.com/rastertiles/voyager/{zoom}/{x}/{y}.png"
                 tile_dir = os.path.join(output_dir, str(zoom), str(x))
                 tile_path = os.path.join(tile_dir, f"{y}.png")
 
