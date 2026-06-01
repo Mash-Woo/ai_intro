@@ -6,7 +6,7 @@ import requests
 
 # BBOX for Ba Đình Ward
 BBOX = (21.028, 105.822, 21.050, 105.850)
-ZOOM_LEVELS = [13, 14, 15, 16, 17]
+ZOOM_LEVELS = [13, 14, 15, 16, 17, 18, 19]
 
 # User agent for OSM policy compliance
 HEADERS = {

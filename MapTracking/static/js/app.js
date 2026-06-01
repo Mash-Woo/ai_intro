@@ -37,13 +37,13 @@ class MapApp {
         this.map = L.map('map', {
             zoomControl: true,
             minZoom: 13,
-            maxZoom: 17
+            maxZoom: 19
         });
 
         L.tileLayer('/static/tiles/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap (Offline)</a>',
             minZoom: 13,
-            maxZoom: 17,
+            maxZoom: 19,
         }).addTo(this.map);
 
         this.map.setView([21.039, 105.836], 15);
